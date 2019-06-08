@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"regexp"
 	"strings"
 
 	"github.com/containers/buildah/pkg/formats"
@@ -95,9 +96,8 @@ func inspectCmd(c *cliconfig.InspectValues) error {
 	}
 
 	outputFormat := c.Format
-	if strings.Contains(outputFormat, "{{.Id}}") {
-		outputFormat = strings.Replace(outputFormat, "{{.Id}}", formats.IDString, -1)
-	}
+	outputFormat = regexp.MustCompile(`\.Id(\W)`).ReplaceAllString(outputFormat, ".ID$1")
+	outputFormat = regexp.MustCompile(`\.Image(\W)`).ReplaceAllString(outputFormat, ".ImageID$1")
 	if latestContainer {
 		lc, err := runtime.GetLatestContainer()
 		if err != nil {
