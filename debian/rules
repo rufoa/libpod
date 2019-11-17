@@ -1,0 +1,75 @@
+#!/usr/bin/make -f
+
+DH_VERBOSE=1
+DH_GOPKG=github.com/containers/libpod
+BUILDDIR := $(shell pwd)
+DESTDIR := $(BUILDDIR)/debian/podman
+PREFIX := $(DESTDIR)/usr
+ETCDIR := $(DESTDIR)/etc
+BINDIR := $(PREFIX)/bin
+MANDIR := $(PREFIX)/share/man
+SYSTEMDDIR := $(PREFIX)/lib/systemd/system
+USERSYSTEMDDIR := $(PREFIX)/lib/systemd/user
+SHAREDIR_CONTAINERS := $(PREFIX)/share/containers
+BASHINSTALLDIR := $(PREFIX)/share/bash-completion/comletions
+ZSHINSTALLDIR := $(PREFIX)/share/zsh/site-functions
+TMPFILESDIR := $(PREFIX)/lib/tmpfiles.d
+BUILDTAGS +=apparmor exclude_graphdriver_devicemapper exclude_graphdriver_btrfs systemd varlink
+BUILD_INFO=$(shell date +%s)
+LDFLAGS_PODMAN="-X main.buildInfo=$(BUILD_INFO)"
+GO := GOPATH=$(BUILDDIR) GO111MODULE=off /usr/bin/go
+GO_BUILD := $(GO) build
+GO_GENERATE := $(GO) generate
+UPSTREAM_TAG=v1.6.3
+
+%:
+	dh_clean
+	rm -rf $(BUILDDIR)/src
+	dh $@ --buildsystem=golang --with=golang
+
+override_dh_auto_configure:
+	dh_auto_configure -O--buildsystem=golang
+	# Include vendored dependencies.
+	cp -rp $(BUILDDIR)/vendor $(BUILDDIR)/src
+	mkdir -p $(BUILDDIR)/src/github.com/containers
+	ln -s $(BUILDDIR) $(BUILDDIR)/src/$(DH_GOPKG)
+
+override_dh_auto_build:
+	$(GO_GENERATE) ./cmd/podman/varlink/...
+	$(GO_BUILD) -tags '$(BUILDTAGS)' -ldflags '$(LDFLAGS_PODMAN)' -o bin/podman github.com/containers/libpod/cmd/podman
+	$(GO_BUILD) -tags '$(BUILDTAGS) remoteclient' -ldflags '$(LDFLAGS_PODMAN)' -o bin/podman-remote github.com/containers/libpod/cmd/podman
+	make docs docker-docs
+	rm -rf $(BUILDDIR)/obj-*-linux-gnu
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	# install.bin (and install.remote)
+	install -dp $(BINDIR)
+	install -m 755 bin/podman $(BINDIR)
+	install -m 755 bin/podman-remote $(BINDIR)
+	# install.cni
+	install -dm 755 $(ETCDIR)/cni/net.d/
+	install -m 644 cni/87-podman-bridge.conflist $(ETCDIR)/cni/net.d
+	# install.completions
+	install -dp $(BASHINSTALLDIR) $(ZSHINSTALLDIR)
+	install -m 644 completions/bash/podman $(BASHINSTALLDIR)
+	install -m 644 completions/zsh/_podman $(ZSHINSTALLDIR)
+	# install.config
+	install -dp $(SHAREDIR_CONTAINERS)
+	install -m 644 libpod.conf $(SHAREDIR_CONTAINERS)
+	# install.man
+	install -dp $(MANDIR)/man1
+	install -dp $(MANDIR)/man5
+	install -m 644 docs/build/man/*.1 $(MANDIR)/man1
+	install -m 644 docs/source/markdown/links/*1 $(MANDIR)/man1
+	# install.systemd
+	install -dp $(SYSTEMDDIR) $(USERSYSTEMDDIR)
+	install -m 644 contrib/varlink/io.podman.socket $(SYSTEMDDIR)
+	install -m 644 contrib/varlink/io.podman.socket $(USERSYSTEMDDIR)
+	install -m 644 contrib/varlink/io.podman.service $(SYSTEMDDIR)
+	sed -e 's,^WantedBy=.*,WantedBy=default.target,' < contrib/varlink/io.podman.service > $(USERSYSTEMDDIR)/io.podman.service
+	install -m 644 contrib/varlink/podman.conf $(TMPFILESDIR)
+
+override_dh_golang:
+
