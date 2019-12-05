@@ -64,7 +64,7 @@ override_dh_auto_install:
 	install -m 644 docs/build/man/*.1 $(MANDIR)/man1
 	install -m 644 docs/source/markdown/links/*1 $(MANDIR)/man1
 	# install.systemd
-	install -dp $(SYSTEMDDIR) $(USERSYSTEMDDIR)
+	install -dp $(SYSTEMDDIR) $(USERSYSTEMDDIR) $(TMPFILESDIR)
 	install -m 644 contrib/varlink/io.podman.socket $(SYSTEMDDIR)
 	install -m 644 contrib/varlink/io.podman.socket $(USERSYSTEMDDIR)
 	install -m 644 contrib/varlink/io.podman.service $(SYSTEMDDIR)

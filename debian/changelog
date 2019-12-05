@@ -1,3 +1,9 @@
+podman (1.6.3~15) stable; urgency=medium
+
+  * create TMPFILESDIR dir 
+
+ -- Lokesh Mandvekar <lsm5@fedoraproject.org>  Thu, 05 Dec 2019 13:59:36 +0000
+
 podman (1.6.3~14) stable; urgency=medium
 
   * rebuild 
